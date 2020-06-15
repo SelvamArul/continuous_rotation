@@ -13,7 +13,7 @@ print (rotation)
             [0., 0., 1.]])
 
 
-# creatre 6D representation of the rotation matrix by dropping the last column vector
+# create 6D representation of the rotation matrix by dropping the last column vector
 
 
 ```python
