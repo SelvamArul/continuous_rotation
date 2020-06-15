@@ -10,9 +10,10 @@ __all__ = ['compute_rotation_matrix_from_ortho6d', 'compute_rotation_matrix_from
 'get_sampled_rotation_matrices_by_hpof', 'get_sampled_rotation_matrices_by_axisAngle']
 
 def normalize_vector( v, return_mag =False):
+    device = v.device
     batch=v.shape[0]
     v_mag = torch.sqrt(v.pow(2).sum(1))# batch
-    v_mag = torch.max(v_mag, torch.autograd.Variable(torch.FloatTensor([1e-8]).cuda()))
+    v_mag = torch.max(v_mag, torch.FloatTensor([1e-8]).to(device))
     v_mag = v_mag.view(batch,1).expand(batch,v.shape[1])
     v = v/v_mag
     if(return_mag==True):
@@ -50,10 +51,11 @@ def compute_rotation_matrix_from_ortho6d(ortho6d):
 #u,a batch*3
 #out batch*3
 def proj_u_a(u,a):
+    device = u.device
     batch=u.shape[0]
     top = u[:,0]*a[:,0] + u[:,1]*a[:,1]+u[:,2]*a[:,2]
     bottom = u[:,0]*u[:,0] + u[:,1]*u[:,1]+u[:,2]*u[:,2]
-    bottom = torch.max(torch.autograd.Variable(torch.zeros(batch).cuda())+1e-8, bottom)
+    bottom = torch.max(torch.zeros(batch).to(device)+1e-8, bottom)
     factor = (top/bottom).view(batch,1).expand(batch,3)
     out = factor* u
     return out
@@ -71,11 +73,12 @@ def stereographic_unproject(a, axis=None):
     """
 	Inverse of stereographic projection: increases dimension by one.
 	"""
+    device = a.device()
     batch=a.shape[0]
     if axis is None:
         axis = a.shape[1]
     s2 = torch.pow(a,2).sum(1) #batch
-    ans = torch.autograd.Variable(torch.zeros(batch, a.shape[1]+1).cuda()) #batch*6
+    ans = torch.zeros(batch, a.shape[1]+1).to(device) #batch*6
     unproj = 2*a/(s2+1).view(batch,1).repeat(1,a.shape[1]) #batch*5
     if(axis>0):
         ans[:,:axis] = unproj[:,:axis] #batch*(axis-0)
@@ -88,7 +91,7 @@ def stereographic_unproject(a, axis=None):
 def compute_rotation_matrix_from_ortho5d(a):
     batch = a.shape[0]
     proj_scale_np = np.array([np.sqrt(2)+1, np.sqrt(2)+1, np.sqrt(2)]) #3
-    proj_scale = torch.autograd.Variable(torch.FloatTensor(proj_scale_np).cuda()).view(1,3).repeat(batch,1) #batch,3
+    proj_scale = torch.FloatTensor(proj_scale_np).to(device).view(1,3).repeat(batch,1) #batch,3
     
     u = stereographic_unproject(a[:, 2:5] * proj_scale, axis=0)#batch*4
     norm = torch.sqrt(torch.pow(u[:,1:],2).sum(1)) #batch
@@ -217,7 +220,7 @@ def compute_rotation_matrix_from_hopf( hopf):
     
 
 #euler batch*4
-#output cuda batch*3*3 matrices in the rotation order of XZ'Y'' (intrinsic) or YZX (extrinsic)  
+#output batch*3*3 matrices in the rotation order of XZ'Y'' (intrinsic) or YZX (extrinsic)  
 def compute_rotation_matrix_from_euler(euler):
     batch=euler.shape[0]
         
@@ -239,7 +242,7 @@ def compute_rotation_matrix_from_euler(euler):
 
 
 #euler_sin_cos batch*6
-#output cuda batch*3*3 matrices in the rotation order of XZ'Y'' (intrinsic) or YZX (extrinsic)  
+#output batch*3*3 matrices in the rotation order of XZ'Y'' (intrinsic) or YZX (extrinsic)  
 def compute_rotation_matrix_from_euler_sin_cos(euler_sin_cos):
     batch=euler_sin_cos.shape[0]
     
@@ -265,12 +268,13 @@ def compute_rotation_matrix_from_euler_sin_cos(euler_sin_cos):
 #both matrix are orthogonal rotation matrices
 #out theta between 0 to 180 degree batch
 def compute_geodesic_distance_from_two_matrices(m1, m2):
+    device = m1.device
     batch=m1.shape[0]
     m = torch.bmm(m1, m2.transpose(1,2)) #batch*3*3
     
     cos = (  m[:,0,0] + m[:,1,1] + m[:,2,2] - 1 )/2
-    cos = torch.min(cos, torch.autograd.Variable(torch.ones(batch).cuda()) )
-    cos = torch.max(cos, torch.autograd.Variable(torch.ones(batch).cuda())*-1 )
+    cos = torch.min(cos, torch.ones(batch).to(device) )
+    cos = torch.max(cos, torch.ones(batch).to(device)*-1 )
     
     
     theta = torch.acos(cos)
@@ -285,12 +289,12 @@ def compute_geodesic_distance_from_two_matrices(m1, m2):
 #both matrix are orthogonal rotation matrices
 #out theta between 0 to 180 degree batch
 def compute_angle_from_r_matrices(m):
-    
+    device = m1.device
     batch=m.shape[0]
     
     cos = (  m[:,0,0] + m[:,1,1] + m[:,2,2] - 1 )/2
-    cos = torch.min(cos, torch.autograd.Variable(torch.ones(batch).cuda()) )
-    cos = torch.max(cos, torch.autograd.Variable(torch.ones(batch).cuda())*-1 )
+    cos = torch.min(cos, torch.ones(batch).to(device) )
+    cos = torch.max(cos, torch.ones(batch).to(device)*-1 )
     
     theta = torch.acos(cos)
     
@@ -329,16 +333,15 @@ def compute_rotation_matrix_from_quaternion( quaternion):
     return matrix
     
 def get_sampled_rotation_matrices_by_quat(batch):
-    #quat = torch.autograd.Variable(torch.rand(batch,4).cuda())
-    quat = torch.autograd.Variable(torch.randn(batch, 4).cuda())
+    quat = torch.randn(batch, 4)
     matrix = compute_rotation_matrix_from_quaternion(quat)
     return matrix
     
 def get_sampled_rotation_matrices_by_hpof(batch):
     
-    theta = torch.autograd.Variable(torch.FloatTensor(np.random.uniform(0,1, batch)*np.pi).cuda()) #[0, pi]
-    phi   =  torch.autograd.Variable(torch.FloatTensor(np.random.uniform(0,2,batch)*np.pi).cuda())      #[0,2pi)
-    tao   = torch.autograd.Variable(torch.FloatTensor(np.random.uniform(0,2,batch)*np.pi).cuda())      #[0,2pi)
+    theta = torch.FloatTensor(np.random.uniform(0,1, batch)*np.pi) #[0, pi]
+    phi   = torch.FloatTensor(np.random.uniform(0,2,batch)*np.pi)      #[0,2pi)
+    tao   = torch.FloatTensor(np.random.uniform(0,2,batch)*np.pi)      #[0,2pi)
     
     
     qw = torch.cos(theta/2)*torch.cos(tao/2)
@@ -366,11 +369,11 @@ def get_sampled_rotation_matrices_by_hpof(batch):
     return matrix
 
 #axisAngle batch*4 angle, x,y,z
-def get_sampled_rotation_matrices_by_axisAngle( batch, return_quaternion=False):
+def get_sampled_rotation_matrices_by_axisAngle(batch, return_quaternion=False):
     
-    theta = torch.autograd.Variable(torch.FloatTensor(np.random.uniform(-1,1, batch)*np.pi).cuda()) #[0, pi] #[-180, 180]
+    theta = torch.FloatTensor(np.random.uniform(-1,1, batch)*np.pi) #[0, pi] #[-180, 180]
     sin = torch.sin(theta)
-    axis = torch.autograd.Variable(torch.randn(batch, 3).cuda())
+    axis = torch.randn(batch, 3)
     axis = normalize_vector(axis) #batch*3
     qw = torch.cos(theta)
     qx = axis[:,0]*sin
