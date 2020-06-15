@@ -1,3 +1,9 @@
+# To install
+
+```
+python setup.py install
+```
+
 # create an identity rotation
 
 
