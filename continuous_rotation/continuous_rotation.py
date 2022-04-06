@@ -6,6 +6,7 @@ import numpy as np
 __all__ = ['compute_rotation_matrix_from_ortho6d', 'compute_rotation_matrix_from_ortho5d', 'compute_rotation_matrix_from_matrix',
 'compute_rotation_matrix_from_axisAngle', 'compute_rotation_matrix_from_Rodriguez', 'compute_rotation_matrix_from_hopf',
 'compute_rotation_matrix_from_euler', 'compute_rotation_matrix_from_euler_sin_cos', 'compute_rotation_matrix_from_quaternion',
+'compute_5D_from_6D', 'compute_6D_from_5D', 'normalize_vector',
 'compute_geodesic_distance_from_two_matrices', 'compute_angle_from_r_matrices', 'get_sampled_rotation_matrices_by_quat',
 'get_sampled_rotation_matrices_by_hpof', 'get_sampled_rotation_matrices_by_axisAngle']
 
@@ -68,12 +69,14 @@ def stereographic_project(a):
     out = a[:,0:dim-1]/(1-a[:,dim-1])
     return out
 
+compute_5D_from_6D = stereographic_project
+
 #in a batch*5, axis int
 def stereographic_unproject(a, axis=None):
     """
 	Inverse of stereographic projection: increases dimension by one.
 	"""
-    device = a.device()
+    device = a.device
     batch=a.shape[0]
     if axis is None:
         axis = a.shape[1]
@@ -85,6 +88,8 @@ def stereographic_unproject(a, axis=None):
     ans[:,axis] = (s2-1)/(s2+1) #batch
     ans[:,axis+1:] = unproj[:,axis:]	 #batch*(5-axis)		# Note that this is a no-op if the default option (last axis) is used
     return ans
+
+compute_6D_from_5D = stereographic_unproject
 
 #a batch*5
 #out batch*3*3
